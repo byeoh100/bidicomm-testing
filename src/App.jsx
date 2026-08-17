@@ -1,121 +1,101 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useState, useCallback } from "react";
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+const STEPS = [
+  { key: "connecting", label: "Connecting to server" },
+  { key: "sent", label: "Ping sent" },
+  { key: "received", label: "Ping received" },
+];
+
+function stepIndex(status) {
+  return STEPS.findIndex((s) => s.key === status);
+}
+
+function PingButton({ status, onPing }) {
+  const busy = status === "connecting" || status === "sent";
+
+  const labels = {
+    idle: "Send ping",
+    connecting: "Connecting...",
+    sent: "Waiting for reply...",
+    received: "Ping again",
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <button
+      onClick={onPing}
+      disabled={busy}
+      style={{
+        fontFamily: "var(--font-mono, monospace)",
+        fontSize: 14,
+        padding: "10px 18px",
+        borderRadius: 6,
+        border: "1px solid #3a3a3a",
+        background: busy ? "#1c1c1c" : "#111",
+        color: busy ? "#888" : "#eee",
+        cursor: busy ? "default" : "pointer",
+        minWidth: 160,
+      }}
+    >
+      {labels[status]}
+    </button>
+  );
+}
 
-      <div className="ticks"></div>
+function StatusDisplay({ status, latencyMs }) {
+  const currentIndex = stepIndex(status);
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+  return (
+    <div
+      style={{
+        fontFamily: "var(--font-mono, monospace)",
+        fontSize: 13,
+        lineHeight: 1.9,
+        background: "#0b0b0b",
+        border: "1px solid #2a2a2a",
+        borderRadius: 6,
+        padding: "12px 16px",
+        minWidth: 220,
+      }}
+    >
+      {STEPS.map((step, i) => {
+        const reached = currentIndex >= i;
+        const isReceived = step.key === "received";
+        return (
+          <div key={step.key} style={{ color: reached ? "#5fd68a" : "transparent" }}>
+            {reached
+              ? `${step.label}${isReceived && latencyMs != null ? ` (${latencyMs}ms)` : ""}`
+              : "placeholder"}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+function App() {
+  const [status, setStatus] = useState("idle");
+  const [latencyMs, setLatencyMs] = useState(null);
+
+  const handlePing = useCallback(() => {
+    setLatencyMs(null);
+    setStatus("connecting");
+
+    // hardcoded WebSocket session estab time: estab conn here
+    setTimeout(() => {
+      setStatus("sent");
+      setTimeout(() => { // send ping here
+        setStatus("received");
+        setLatencyMs(5); // hardcoded round-trip time of 5 ms
+      }, 5); // hardcoded ping response time
+    }, 400);
+  }, []);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, alignItems: "flex-start" }}>
+      <PingButton status={status} onPing={handlePing} />
+      <StatusDisplay status={status} latencyMs={latencyMs} />
+    </div>
   )
 }
 
