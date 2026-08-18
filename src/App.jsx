@@ -81,14 +81,26 @@ function App() {
     setLatencyMs(null);
     setStatus("connecting");
 
-    // hardcoded WebSocket session estab time: estab conn here
-    setTimeout(() => {
+    const socket = new WebSocket("ws://localhost:8080");
+    let sentAt = null;
+
+    socket.onopen = () => {
       setStatus("sent");
-      setTimeout(() => { // send ping here
-        setStatus("received");
-        setLatencyMs(5); // hardcoded round-trip time of 5 ms
-      }, 5); // hardcoded ping response time
-    }, 400);
+      sentAt = performance.now();
+      socket.send(JSON.stringify({ type: "ping" }));
+    };
+
+    socket.onmessage = (event) => {
+      const { type } = JSON.parse(event.data);
+      if (type !== "pong") return;
+      setStatus("received");
+      setLatencyMs(Math.round(performance.now() - sentAt));
+      socket.close();
+    };
+
+    socket.onerror = () => {
+      setStatus("idle");
+    };
   }, []);
 
   return (
